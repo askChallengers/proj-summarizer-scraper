@@ -1,8 +1,12 @@
 const puppeteer = require("puppeteer");
 const { BigQuery } = require("@google-cloud/bigquery");
+const config = require('./config.js');
 
 // BigQuery 클라이언트 초기화
-const bigquery = new BigQuery();
+const keyFile = `${config.keyFile}`;
+const bigquery = new BigQuery({
+    keyFilename: keyFile
+});
 
 async function crawlAndStore() {
 
@@ -30,8 +34,9 @@ async function crawlAndStore() {
         
                 if (link && subItems.length > 0) {
                     result.push({
-                    link,
-                    sub_items: subItems, // 모든 span 데이터를 배열로 저장
+                    url: link,
+                    newsAgency: subItems[0], // 모든 span 데이터를 배열로 저장
+                    regDate: null,
                     });
                 }
                 });
@@ -40,16 +45,16 @@ async function crawlAndStore() {
         });
         console.log("크롤링 데이터:", dataToInsert);
 
-        // // 4. BigQuery 데이터셋 및 테이블 설정
-        // const datasetId = "your_dataset_id"; // 수정: 데이터셋 ID
-        // const tableId = "your_table_id"; // 수정: 테이블 ID
+        // // 4. BigQuery 데이터셋 및 테이블 설정 
+        const datasetId = "summarizer"; // 수정: 데이터셋 ID
+        const tableId = "scraped_url"; // 수정: 테이블 ID
 
         // // 5. BigQuery에 데이터 적재
-        // await bigquery.dataset(datasetId).table(tableId).insert(dataToInsert);
+        await bigquery.dataset(datasetId).table(tableId).insert(dataToInsert);
 
-        // console.log(`${dataToInsert.length}개의 데이터가 BigQuery에 적재되었습니다.`);
+        console.log(`${dataToInsert.length}개의 데이터가 BigQuery에 적재되었습니다.`);
     } catch (error) {
-        console.error("에러 발생:", error.message);
+        console.error("에러 발생:", error);
     }
 }
 
