@@ -6,6 +6,8 @@ var app = express();
 const port = `${config.port}`;
 
 // BigQuery 클라이언트 초기화
+const datasetId = 'summarizer'; // BigQuery 데이터셋 이름
+const tableId = 'news'; // BigQuery 테이블 이름
 const keyFile = `${config.keyFile}`;
 const bigquery = new BigQuery({
     keyFilename: keyFile
@@ -24,6 +26,16 @@ const sort = `${config.sort}`;      // 검색결과 정렬
 // 빅쿼리 데이터 적재용
 const result = [];
 
+// 날짜 문자열을 Date 객체로 변환
+var parseDate = (pubDateStr) => {
+    const dateObj = new Date(pubDateStr);
+    dateObj.setHours(dateObj.getHours() + 9); // 한국 시간 적용
+
+    // BigQuery DATETIME 형식인 "YYYY-MM-DD HH:MM:SS"로 변환
+    const formattedDate = dateObj.toISOString().slice(0, 19).replace('T', ' '); 
+    return formattedDate;
+};
+
 app.get('/search/news', function (req, res) {
 //    var api_url = 'https://openapi.naver.com/v1/search/news.json?query=' + encodeURI(req.query.query); // JSON 결과
     var api_url = 'https://openapi.naver.com/v1/search/news.json?query=' + encodeURI(query) + '&display=' + display + '&start=' + start + '&sort=' + encodeURI(sort); // JSON 결과
@@ -33,7 +45,7 @@ app.get('/search/news', function (req, res) {
         url: api_url,
         headers: {'X-Naver-Client-Id':client_id, 'X-Naver-Client-Secret': client_secret}
     };
-    request.get(options, function (error, response, body) {
+    request.get(options, async function (error, response, body) {
         console.log('response = ' + response);
         if (!error && response.statusCode == 200) {
             console.log('SUCCESS!!');
@@ -42,6 +54,18 @@ app.get('/search/news', function (req, res) {
             const jsonData = JSON.parse(body); // 문자열을 JSON 객체로 변환
             const items = jsonData.items;
             console.log('items : ' + items[0].title);
+
+            // BigQuery에 삽입할 데이터 변환
+            const rows = items.map(item => ({
+                title: item.title.replace(/<[^>]*>/g, ''), // HTML 태그 제거
+                originalLink: item.originallink,
+                naverLink: item.link,
+                description: item.description.replace(/<[^>]*>/g, ''), // HTML 태그 제거
+                pubDate: parseDate(item.pubDate) // 날짜 변환
+            }));
+
+            // BigQuery에 데이터 삽입
+            await insertIntoBigQuery(rows);
 
             res.writeHead(200, {'Content-Type': 'text/json;charset=utf-8'});
             res.end(body);
@@ -74,69 +98,12 @@ app.get('/search/news', function (req, res) {
     console.log(`app listening on port ${port}!`);
  });
 
-// async function crawlAndStore() {
-
-//     // 1. Puppeteer로 브라우저 실행
-//     const browser = await puppeteer.launch();
-//     const page = await browser.newPage();
-
-//     try {
-//         // 2. 페이지 오픈
-//         const url = "https://news.naver.com/factcheck/main";
-//         await page.goto(url, { waitUntil: "networkidle2" });
-
-//         // 3. 현재 날짜를 계산하여 page.evaluate에 전달
-//         const currentRegDate = (() => {
-//             const now = new Date();
-//             const yyyy = now.getFullYear();
-//             const mm = String(now.getMonth() + 1).padStart(2, "0"); // 월은 0부터 시작하므로 +1
-//             const dd = String(now.getDate()).padStart(2, "0");
-//             const hh = String(now.getHours()).padStart(2, "0");
-//             const min = String(now.getMinutes()).padStart(2, "0");
-//             const ss = String(now.getSeconds()).padStart(2, "0");
-//             return `${yyyy}-${mm}-${dd} ${hh}:${min}:${ss}`;
-//         })();
-
-//         // 4. 필요한 데이터 추출
-//         const dataToInsert = await page.evaluate(
-//             (regDate) => {
-//                 const cards = document.querySelectorAll("ul.factcheck_cards._card_list li");
-//                 const result = [];
-//                 cards.forEach((card) => {
-//                     // a 태그의 링크 가져오기
-//                     const link = card.querySelector("a")?.href;
-
-//                     // span.factcheck_card_sub_item 태그의 모든 텍스트 가져오기
-//                     const subItems = Array.from(card.querySelectorAll("span.factcheck_card_sub_item")).map(
-//                         (span) => span.innerText.trim()
-//                     );
-
-//                     if (link && subItems.length > 0) {
-//                         result.push({
-//                             url: link,
-//                             newsAgency: subItems[0],
-//                             regDate: regDate,
-//                         });
-//                     }
-//                 });
-//                 return result;
-//             },
-//             currentRegDate // Node.js 컨텍스트에서 계산된 regDate 전달
-//         );
-//         console.log("크롤링 데이터:", dataToInsert);
-
-//         // // 5. BigQuery 데이터셋 및 테이블 설정 
-//         const datasetId = "summarizer";
-//         const tableId = "scraped_url";
-
-//         // // 6. BigQuery에 데이터 적재
-//         await bigquery.dataset(datasetId).table(tableId).insert(dataToInsert);
-
-//         console.log(`${dataToInsert.length}개의 데이터가 BigQuery에 적재되었습니다.`);
-//     } catch (error) {
-//         console.error("에러 발생:", error);
-//     }
-// }
-
-// 크롤링 및 적재 실행
-// crawlAndStore();
+ // BigQuery에 데이터 삽입하는 함수
+async function insertIntoBigQuery(rows) {
+    try {
+        await bigquery.dataset(datasetId).table(tableId).insert(rows);
+        console.log(`BigQuery에 ${rows.length}개의 뉴스 데이터 삽입 완료`);
+    } catch (err) {
+        console.error('BigQuery 데이터 삽입 오류:', err);
+    }
+}
