@@ -56,12 +56,14 @@ app.get('/search/news', function (req, res) {
             console.log('items : ' + items[0].title);
 
             // BigQuery에 삽입할 데이터 변환
-            const rows = items.map(item => ({
+            const rows = items.map((item, index) => ({
                 title: item.title.replace(/<[^>]*>/g, ''), // HTML 태그 제거
                 originalLink: item.originallink,
                 naverLink: item.link,
                 description: item.description.replace(/<[^>]*>/g, ''), // HTML 태그 제거
-                pubDate: parseDate(item.pubDate) // 날짜 변환
+                pubDate: parseDate(item.pubDate), // 날짜 변환
+                order: index + 1,
+                keyword: query
             }));
 
             // BigQuery에 데이터 삽입
