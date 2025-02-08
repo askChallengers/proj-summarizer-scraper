@@ -55,6 +55,10 @@ app.get('/search/news', function (req, res) {
             const items = jsonData.items;
             console.log('items : ' + items[0].title);
 
+            // 현재 시간을 DATETIME 형식으로 변환 (예: '2025-02-08 15:00:00')
+            const regDatetime = new Date();
+            const regDatetimeFormatted = `${regDatetime.getFullYear()}-${(regDatetime.getMonth() + 1).toString().padStart(2, '0')}-${regDatetime.getDate().toString().padStart(2, '0')} ${regDatetime.getHours().toString().padStart(2, '0')}:${regDatetime.getMinutes().toString().padStart(2, '0')}:${regDatetime.getSeconds().toString().padStart(2, '0')}`;
+
             // BigQuery에 삽입할 데이터 변환
             const rows = items.map((item, index) => ({
                 title: item.title.replace(/<[^>]*>/g, ''), // HTML 태그 제거
@@ -63,7 +67,8 @@ app.get('/search/news', function (req, res) {
                 description: item.description.replace(/<[^>]*>/g, ''), // HTML 태그 제거
                 pubDate: parseDate(item.pubDate), // 날짜 변환
                 order: index + 1,
-                keyword: query
+                keyword: query,
+                regDatetime: regDatetimeFormatted
             }));
 
             // BigQuery에 데이터 삽입
