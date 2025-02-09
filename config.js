@@ -22,7 +22,7 @@ const prodConfig = {
 
 // 환경 변수로 프로파일 결정 (default: 'prod')
 const profile = process.env.PROFILE  || 'prod';
-console.log("Current Profile : " + process.env.PROFILE);
+console.log("Current Profile : " + profile);
 
 // 환경별 설정 적용
 const environmentConfig = profile === 'dev' ? devConfig : prodConfig;
