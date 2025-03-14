@@ -13,7 +13,8 @@ const commonConfig = {
 const devConfig = {
     keyFile: './service-account-file.json',
     CLIENT_ID: process.env.CLIENT_ID,
-    CLIENT_SECRET: process.env.CLIENT_SECRET
+    CLIENT_SECRET: process.env.CLIENT_SECRET,
+    OPENAI_API_KEY: process.env.OPENAI_API_KEY
 };
 
 const prodConfig = {
