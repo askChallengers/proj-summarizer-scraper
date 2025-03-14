@@ -11,7 +11,8 @@ const commonConfig = {
 
 // 환경별로 다르게 설정해야 하는 변수
 const devConfig = {
-    keyFile: './service-account-file.json',
+    keyFile_bigquery: './service-account-file.json',
+    keyFile_gmail: './client_secret_to_get_gmail.json',
     CLIENT_ID: process.env.CLIENT_ID,
     CLIENT_SECRET: process.env.CLIENT_SECRET,
     OPENAI_API_KEY: process.env.OPENAI_API_KEY

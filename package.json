@@ -18,6 +18,7 @@
   "homepage": "https://github.com/askChallengers/proj-url-scraper#readme",
   "dependencies": {
     "@google-cloud/bigquery": "^7.9.2",
+    "@google-cloud/storage": "^7.15.2",
     "axios": "^1.7.9",
     "cheerio": "^1.0.0",
     "dotenv": "^16.4.7",
