@@ -1,7 +1,7 @@
 # Dockerfile
 
 # Node.js 이미지를 기반으로 설정
-FROM node:16
+FROM node:18
 
 # 한글 폰트 설치
 RUN apt-get update && apt-get install -y \
