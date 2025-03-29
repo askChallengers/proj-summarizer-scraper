@@ -19,7 +19,11 @@ const devConfig = {
 };
 
 const prodConfig = {
-    keyFile: '/secrets/team-ask-visualizer-google-cloud-access-info-json'
+    keyFile_bigquery: '/secrets_cloud/team-ask-summarizer-google-cloud-access-info-json',
+    keyFile_gmail: '/secrets_gmail/team-ask-summarizer-google-mail-api-access-info-json',
+    CLIENT_ID: process.env.CLIENT_ID,
+    CLIENT_SECRET: process.env.CLIENT_SECRET,
+    OPENAI_API_KEY: process.env.OPENAI_API_KEY
 };
 
 // 환경 변수로 프로파일 결정 (default: 'prod')
