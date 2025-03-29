@@ -34,7 +34,9 @@ async function getNewsletterDataFromBigQuery() {
     FROM 
         \`${datasetId}.${rawTableId}\`
     WHERE 1 = 1
-        AND received_date BETWEEN start_date AND end_date;
+        AND received_date BETWEEN start_date AND end_date
+        AND is_delete = 'N'
+        ;
   `;
 
   console.log("query :", query);
