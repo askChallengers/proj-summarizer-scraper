@@ -52,8 +52,9 @@ async function getNewsletterDataFromBigQuery() {
 
 async function saveEmailAsPDF(emailContent, filePath) {
     
-    
-    const browser = await puppeteer.launch();
+    const browser = await puppeteer.launch({
+      args: ['--no-sandbox', '--disable-setuid-sandbox'],
+    });
     const page = await browser.newPage();
 
     // 이메일 HTML 내용 로드
