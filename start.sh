@@ -1,7 +1,7 @@
 #!/bin/sh
 
 # Start scrap-by-newsletter.js
-node scrap-by-newsletter.js
+node --experimental-fetch scrap-by-newsletter.js
 
 sleep 5
 
