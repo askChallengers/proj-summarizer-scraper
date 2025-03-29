@@ -9,7 +9,7 @@ const path = require("path");
 const datasetId = "summarizer";
 const rawTableId = "newsletter_raw";
 const summaryTableId = "newsletter_summary";
-const keyFile = config.keyFile;
+const keyFile = config.keyFile_bigquery;
 const bigquery = new BigQuery({
   keyFilename: keyFile,
 });
