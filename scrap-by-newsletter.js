@@ -18,8 +18,6 @@ const bigquery = new BigQuery({
     keyFilename: `${config.keyFile_bigquery}`
 });
 
-const app = express();
-const port = 3000;
 let oauth2Client;
 
 const parseDate = (pubDateStr) => {
@@ -42,7 +40,7 @@ function extractPlainTextFromHtml(htmlContent) {
 }
 
 /** 📌 이메일 스크래핑 */
-async function scrapeEmails() {
+async function scrapEmails() {
     const getFormattedDate = (date) => 
         `${date.getFullYear()}/${String(date.getMonth() + 1).padStart(2, '0')}/${String(date.getDate()).padStart(2, '0')}`;
 
@@ -107,14 +105,11 @@ async function saveToBigQuery(emailData) {
     }
 }
 
-/** 📌 수동 실행 핸들러 */
-app.get('/scrape-emails', async (req, res) => {
+async function scrapByNewsletter() {
     console.log('📥 Manual email scraping triggered...');
     // await getOAuth2Client();
     oauth2Client = await getOAuth2Client();
-    await scrapeEmails();
-    res.send('✅ Email scraping completed and data inserted into BigQuery.');
-});
+    await scrapEmails();
+}
 
-/** 📌 서버 실행 */
-app.listen(port, () => console.log(`🚀 Server running at http://localhost:${port}`));
+scrapByNewsletter();

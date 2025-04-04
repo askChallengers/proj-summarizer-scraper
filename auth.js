@@ -5,6 +5,7 @@ const { Storage } = require('@google-cloud/storage');
 const config = require('./config.js');
 
 const app = express();
+const port = 3000;
 
 const storage = new Storage({
     keyFilename: `${config.keyFile_bigquery}`
@@ -106,6 +107,10 @@ async function getOAuth2Client() {
                     reject(error);
                 }
             });
+
+            app.listen(port, () => {
+                console.log(`OAuth 서버가 http://localhost:${port} 에서 대기 중`);
+              });
         });
     }
 
