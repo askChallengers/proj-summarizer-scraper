@@ -50,38 +50,6 @@ async function getNewsletterDataFromBigQuery() {
   }
 }
 
-async function saveEmailAsPDF(emailContent, filePath) {
-    
-    const browser = await puppeteer.launch({
-      args: ['--no-sandbox', '--disable-setuid-sandbox'],
-    });
-    const page = await browser.newPage();
-
-    // 이메일 HTML 내용 로드
-    await page.setContent(emailContent, { waitUntil: 'domcontentloaded' });
-
-    // PDF 저장
-    await page.pdf({ path: filePath, format: 'A4' });
-
-    await browser.close();
-    console.log(`PDF saved: ${filePath}`);
-}
-
-// 📌 1️⃣ OpenAI Assistants에 파일 업로드
-async function uploadFile(filePath) {
-  try {
-    const response = await openai.files.create({
-      file: fs.createReadStream(filePath),
-      purpose: "assistants",
-    });
-    console.log("✅ 파일 업로드 완료! file_id:", response.id);
-    return response.id;
-  } catch (error) {
-    console.error("❌ 파일 업로드 실패:", error);
-    return null;
-  }
-}
-
 // 📌 2️⃣ 새로운 스레드 생성
 async function createThread() {
   try {
@@ -105,29 +73,33 @@ async function createAssistant() {
     const assistant = await openai.beta.assistants.create({
         name: "Newsletter Summarizer",
         instructions: `
-            당신은 PDF 파일에서 주간 이슈를 정리하는 역할을 합니다.  
-            파일의 원문은 **한글**로 작성되어 있으며, 변환된 내용도 반드시 **한글로 유지**해야 합니다.  
+            당신은 이메일 뉴스레터의 본문에서 핵심 주제를 추출하고, 각 주제에 대한 원문 내용을 구조화하는 역할을 합니다.
 
-            🔹 처리 방법:
-            1. 먼저, PDF 파일의 내용을 OCR 처리하여 **한글 원문 그대로** 텍스트로 변환하세요.  
-            2. 텍스트로 변환된 전체 내용을 분석하여 제목과 내용으로 정리합니다.  
-            (📌 **요약하거나 번역하지 말고, 원문을 그대로 정리하세요!**)  
-            3. 기본적으로 전체 내용에 대한 정리를 진행하고, 특수한 케이스에도 정리된 내용의 응답은 최소 5가지 이상으로 합니다.  
-            4. 정리된 내용의 응답은 **반드시 JSON 형식**으로 반환해야 합니다.  
-            5. **추가 설명, 마크다운(\`\`\`json\`\`\` 등)을 포함하지 마세요.**  
-            6. 🔥 **반드시 모든 응답은 한글로 반환하세요.**  
-            (📌 **영어로 번역하지 마세요! 원문이 한글이면 응답도 반드시 한글이어야 합니다.**)  
+            처리 방식:
+            1. 내가 전달하는 텍스트는 이메일 본문의 HTML 태그가 제거된 원문입니다.
+            2. 전체 텍스트에서 임의로 의역하거나 요약하지 말고, **있는 그대로의 문장들을 기반**으로 주요 주제를 구분하세요.
+            3. 각 주제에 대해 관련 문장들을 묶어서 정리하세요.
+            4. 뉴스레터이다보니 뉴스레터를 제작한 플랫폼의 홍보나 개인적인 의견이 처음, 마지막 부분에 들어있을 수 있습니다. 해당 부분은 당신이 진행하는 역할에서 제외시키세요.
+            5. 본문에서 추출하는 것에 개수 제한은 없습니다. 있는 그대로의 본문에서 파악되는 각 주제에 맞게 정리하세요.
+            5. 오직 JSON 형식으로만 응답하세요. 추가 텍스트나 설명, 마크다운 없이 JSON 그 자체만 반환하세요.
 
-            🔹 JSON 응답 예시:
+            주의사항:
+            - 절대로 요약하지 마세요.
+            - 절대로 번역하지 마세요.
+            - 절대로 내용을 임의로 재구성하거나 해석하지 마세요.
+            - 반드시 원문에 있는 문장만 주제별로 정리하세요.
+            - 응답은 반드시 **JSON만 출력**하세요. 아무 다른 설명도 붙이지 마세요.
+
+            JSON 응답 형식 예시:
             {
-            "issues": [
-                { "title": "이슈 제목1", "content": "이슈 내용1" },
-                { "title": "이슈 제목2", "content": "이슈 내용2" }
-            ]
-            } 
+              "issues": [
+                { "title": "주제 제목1", "content": "관련 문장들" },
+                { "title": "주제 제목2", "content": "관련 문장들" }
+              ]
+            }
         `,
         model: "gpt-4-turbo",
-        tools: [{ type: "file_search" }],
+        tools: [],
     });
 
     assistantId = assistant.id;
@@ -139,24 +111,19 @@ async function createAssistant() {
   }
 }
 
-// 📌 4️⃣ 파일을 첨부한 메시지 추가
-async function addMessageToThread(threadId, fileId) {
+// 📌 4️⃣ 메일 내용을 직접 전달하는 메시지 추가
+async function addTextMessageToThread(threadId, emailContent) {
   try {
     await openai.beta.threads.messages.create(threadId, {
       role: "user",
-      content: "Please summarize all issues in the newsletter. Extract all titles and contents.",
-      attachments: [
-        {
-          file_id: fileId,
-          tools: [{ type: "file_search" }],
-        },
-      ],
+      content: emailContent // HTML 태그 제거된 본문 텍스트
     });
     console.log("✅ 메시지 추가 완료!");
   } catch (error) {
     console.error("❌ 메시지 추가 실패:", error);
   }
 }
+
 
 // 📌 5️⃣ Assistant 실행 후 결과 가져오기
 async function runAssistant(threadId, assistantId) {
@@ -190,21 +157,16 @@ async function runAssistant(threadId, assistantId) {
     }
 }
 
-  
-
-
-// 📌 6️⃣ GPT에 HTML 파일을 전달하여 요약받기
-async function getSummarizedJson(filePath) {
-    const fileId = await uploadFile(filePath);
-    if (!fileId) return;
-
+// 📌 6️⃣ GPT에 아매알 본문 전달하여 요약받기
+async function getSummarizedJson(emailContent) {
     const threadId = await createThread();
     if (!threadId) return;
 
-    await addMessageToThread(threadId, fileId);
+    //@ await addMessageToThread(threadId, fileId);
+    await addTextMessageToThread(threadId, emailContent);
 
     // const assistantId = await createAssistant();
-    const assistantId = 'asst_b1WSFL02LMf41BzQXVKR0gR2';
+    const assistantId = 'asst_jIUgX5VlK84AbE9aWjP7Zrk2';
     if (!assistantId) return;
 
     const response = await runAssistant(threadId, assistantId);
@@ -244,6 +206,7 @@ async function getSummarizedJson(filePath) {
     }
 }
 
+
 // 📌 7️⃣ JSON 데이터를 BigQuery에 저장
 async function saveJsonToBigQuery(newletterRawId, jsonData) {
   const rows = jsonData.issues.map((item) => ({
@@ -267,20 +230,12 @@ async function processNewsletters() {
   for (const newsletter of newsletters) {
     const newletterRawId = newsletter.id;
     const emailContent = newsletter.email_content;
-    const filePath = path.join(__dirname, `temp-email-${Date.now()}.pdf`);
-    // const filePath = path.join(__dirname, `temp-email-${Date.now()}.html`);
-    // fs.writeFileSync(filePath, emailContent);
 
-    await saveEmailAsPDF(emailContent, filePath)
-
-    const summarizedJson = await getSummarizedJson(filePath);
+    const summarizedJson = await getSummarizedJson(emailContent);
 
     if (summarizedJson) {
       await saveJsonToBigQuery(newletterRawId, summarizedJson);
     }
-
-    fs.unlinkSync(filePath);
-    console.log("✅ 임시 파일 삭제 완료");
   }
 }
 
